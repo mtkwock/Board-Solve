@@ -199,7 +199,7 @@ func (self Placement) ToPos(board Board) uint8 {
 }
 
 func (self Placement) String() string {
-	return fmt.Sprintf("(%d,%d)", self.X, self.Y)
+	return fmt.Sprintf("(%d,%d)", self.Y, self.X)
 }
 
 func (self Placement) Swap(direction Direction) Placement {

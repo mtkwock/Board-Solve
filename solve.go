@@ -83,18 +83,23 @@ var DirectionReverse map[Direction]Direction = map[Direction]Direction {
 
 func (self BfsState) NextStates() []BfsState {
 	next_states := make([]BfsState, 0)
+	reverse_move := DirectionReverse[self.moves[len(self.moves) - 1]]
 	for _, direction := range []Direction{RIGHT, DOWN, LEFT, UP} {
 		// fmt.Printf("BfsState: %s", self)
-		if direction == DirectionReverse[self.moves[len(self.moves) - 1]] {
+		if direction == reverse_move {
 			continue
 		}
 		next_placement := self.current_pos.Swap(direction)
-		// TODO: Handle immobile orbs.
-		if next_placement.Y >= self.current_board.Height || next_placement.X >= self.current_board.Width {
+		if next_placement.Y >= self.current_board.Height ||
+		   next_placement.X >= self.current_board.Width {
 			continue
 		}
 		next_state := self.Clone()
-		next_state.current_board, _ = next_state.current_board.Swap(self.current_pos, direction)
+		new_board, err := next_state.current_board.Swap(self.current_pos, direction)
+		if err != nil {
+			continue
+		}
+		next_state.current_board = new_board
 		next_state.moves = append(next_state.moves, direction)
 		next_state.current_pos = next_placement
 		next_states = append(next_states, next_state)
@@ -144,14 +149,12 @@ func (q *CircularQueue) Pop() *BfsState {
 
 func (s BfsFourDirectionSolver) Solve(board Board, requirements SolveRequirement) Moves {
 	// Initialize States
-	queue := CircularQueue{nodes: make([]*BfsState, 1024 * 1024)}
+	queue := CircularQueue{nodes: make([]*BfsState, 1 << 20)}
   for y := uint8(0); y < board.Height; y++ {
 		for x := uint8(0); x < board.Width; x++ {
 			starting_pos := Placement{y, x}
 			if x < board.Width - 1 {
 				board, err := board.Swap(starting_pos, RIGHT)
-				// fmt.Println("err: %s", err == nil)
-
 				if err == nil {
 					new_state := BfsState {
 						board,
@@ -200,6 +203,7 @@ func (s BfsFourDirectionSolver) Solve(board Board, requirements SolveRequirement
 			}
 		}
 	}
+	fmt.Println(queue.count)
 
 	best_state := BestState{BfsState{}, 0}
 
@@ -213,21 +217,25 @@ func (s BfsFourDirectionSolver) Solve(board Board, requirements SolveRequirement
 		if state_ptr == nil {
 			// fmt.Println(known_boards)
 			fmt.Printf("Known Board size: %d\n", len(known_boards))
-			fmt.Println(queue.count)
+			// fmt.Println(queue.count)
 			break
 		}
 		current_state := *state_ptr
-		fmt.Printf("%d|%d, ", queue.count, len(current_state.moves))
+		// fmt.Printf("%d|%d, ", queue.count, len(current_state.moves))
 		board_string := current_state.current_pos.String() + current_state.current_board.SimpleString()
 		if val, exists := known_boards[board_string]; exists {
 			skipped++
 			if len(current_state.moves) < 20 {
-				fmt.Printf("Conflicts: %s, %s, %s, %s\n", board_string, val, current_state.starting_pos, DirectionsToString(current_state.moves))
+				fmt.Printf("Conflicts: %s, %s | %s, %s\n", board_string, val, current_state.starting_pos, DirectionsToString(current_state.moves))
 			}
+			if skipped > 10 {
+				break
+			}
+			// break
 			continue
 		}
 		// fmt.Printf("Checked %d\n", checked)
-		known_boards[board_string] = DirectionsToString(current_state.moves)
+		known_boards[board_string] = current_state.starting_pos.String() + DirectionsToString(current_state.moves)
 
 		checked += 1
 		// fmt.Printf("%s\n", len(current_state.moves))

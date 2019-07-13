@@ -6,6 +6,7 @@ import (
 
 type SolveRequirement struct {
 	ComboMinimum int
+	Diagonals bool
 	// TODO: Add different types of requirements
 	// Max number of moves
 	// Minimum color combos
@@ -82,10 +83,14 @@ var DirectionReverse map[Direction]Direction = map[Direction]Direction {
 	UP_RIGHT: DOWN_LEFT,
 }
 
-func (self BfsState) NextStates() []BfsState {
+func (self BfsState) NextStates(requirements SolveRequirement) []BfsState {
 	next_states := make([]BfsState, 0)
 	reverse_move := DirectionReverse[self.moves[len(self.moves) - 1]]
-	for _, direction := range []Direction{RIGHT, DOWN, LEFT, UP} {
+	moves := []Direction{RIGHT, DOWN, LEFT, UP}
+	if requirements.Diagonals {
+		moves = []Direction{RIGHT, DOWN_RIGHT, DOWN, DOWN_LEFT, LEFT, UP_LEFT, UP, UP_RIGHT}
+	}
+	for _, direction := range moves {
 		// fmt.Printf("BfsState: %s", self)
 		if direction == reverse_move {
 			continue
@@ -160,49 +165,95 @@ func (s BfsFourDirectionSolver) Solve(board Board, requirements SolveRequirement
 			if x < board.Width - 1 {
 				board, err := board.Swap(starting_pos, RIGHT)
 				if err == nil {
-					new_state := BfsState {
+					// new_state :=
+					queue.Push(&BfsState {
 						board,
 						starting_pos,
 						starting_pos.Swap(RIGHT),
 						[]Direction{RIGHT},
+					})
+				}
+				if requirements.Diagonals && y < board.Height - 1 {
+					board_diagonal, err := board.Swap(starting_pos, DOWN_RIGHT)
+					if err == nil {
+						// new_diagonal :=
+						queue.Push(&BfsState {
+							board_diagonal,
+							starting_pos,
+							starting_pos.Swap(DOWN_RIGHT),
+							[]Direction{DOWN_RIGHT},
+						})
 					}
-					queue.Push(&new_state)
 				}
 			}
 			if y < board.Height - 1 {
 				board, err := board.Swap(starting_pos, DOWN)
 				if err == nil {
-					new_state := BfsState {
+					// new_state :=
+					queue.Push(&BfsState {
 						board,
 						starting_pos,
 						starting_pos.Swap(DOWN),
 						[]Direction{DOWN},
-					}
-					queue.Push(&new_state)
+					})
 				}
-			}
+				if requirements.Diagonals && x > 0 {
+					board_diagonal, err := board.Swap(starting_pos, DOWN_LEFT)
+					if err == nil {
+						// new_diagonal :=
+						queue.Push(&BfsState {
+							board_diagonal,
+							starting_pos,
+							starting_pos.Swap(DOWN_LEFT),
+							[]Direction{DOWN_LEFT},
+						})
+					}
+				}			}
 			if x > 0 {
 				board, err := board.Swap(starting_pos, LEFT)
 				if err == nil {
-					new_state := BfsState {
+					// new_state :=
+					queue.Push(&BfsState {
 						board,
 						starting_pos,
 						starting_pos.Swap(LEFT),
 						[]Direction{LEFT},
+					})
+					if requirements.Diagonals && y < 0 {
+						board_diagonal, err := board.Swap(starting_pos, UP_LEFT)
+						if err == nil {
+							queue.Push(&BfsState {
+								board_diagonal,
+								starting_pos,
+								starting_pos.Swap(UP_LEFT),
+								[]Direction{UP_LEFT},
+							})
+						}
 					}
-					queue.Push(&new_state)
 				}
 			}
 			if y > 0 {
 				board, err := board.Swap(starting_pos, UP)
 				if err == nil {
-					new_state := BfsState {
+					// new_state :=
+					queue.Push(&BfsState {
 						board,
 						starting_pos,
 						starting_pos.Swap(UP),
 						[]Direction{UP},
+					})
+					if requirements.Diagonals && x < board.Width - 1 {
+						board_diagonal, err := board.Swap(starting_pos, UP_RIGHT)
+						if err == nil {
+							// new_diagonal :=
+							queue.Push(&BfsState {
+								board_diagonal,
+								starting_pos,
+								starting_pos.Swap(UP_RIGHT),
+								[]Direction{UP_RIGHT},
+							})
+						}
 					}
-					queue.Push(&new_state)
 				}
 			}
 		}
@@ -260,7 +311,7 @@ func (s BfsFourDirectionSolver) Solve(board Board, requirements SolveRequirement
 			best_state.State = current_state
 			best_state.Combos = len(current_state.current_board.GetAllCombos())
 		}
-		next_states := current_state.NextStates()
+		next_states := current_state.NextStates(requirements)
 		// 		for _, next_state := range current_state.NextStates() {
 		for i := 0; i < len(next_states); i++ {
 			// fmt.Printf("%d\n", len(next_states))
@@ -277,7 +328,7 @@ func (s BfsFourDirectionSolver) Solve(board Board, requirements SolveRequirement
 	fmt.Println(best_state.State.current_board)
 	combos := best_state.State.current_board.GetAllCombos()
 	for _, combo := range combos {
-		combo.Print()
+		combo.Print(board.Width)
 	}
 	return Moves{best_state.State.starting_pos, best_state.State.moves}
 }

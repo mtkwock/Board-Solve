@@ -277,9 +277,9 @@ func (self BoardCombo) String() string {
 	return fmt.Sprintf("%s: [%d]", AttributeToName[self.Attribute], len(self.Positions))
 }
 
-func (self BoardCombo) Print() {
+func (self BoardCombo) Print(width uint8) {
 	fmt.Println(self)
-	board := CreateEmptyBoard()
+	board := CreateEmptyBoard(width)
 	for _, placement := range self.Positions {
 		board.Slots[placement.ToPos(board)].Orb.Attribute = self.Attribute
 	}
@@ -556,8 +556,8 @@ func (self Board) GetAllCombos() []BoardCombo {
 	return all_combos
 }
 
-func CreateEmptyBoard() Board {
-	return Board{make([]BoardSpace, 30), 5, 6}
+func CreateEmptyBoard(width uint8) Board {
+	return Board{make([]BoardSpace, width * (width - 1)), width - 1, width}
 }
 
 func CreateBoard(s string, width int) Board {
@@ -565,5 +565,5 @@ func CreateBoard(s string, width int) Board {
 	for i, rune := range s {
 		slots[i].Orb.Attribute = LetterToAttribute[string(rune)]
 	}
-	return Board{slots, uint8(len(s) / 6), uint8(width)}
+	return Board{slots, uint8(len(s) / width), uint8(width)}
 }

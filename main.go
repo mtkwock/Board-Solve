@@ -9,12 +9,14 @@ var board_flag string
 var board_width int
 var board_to_solve Board
 var combo_flag int
+var diagonals_flag bool
 
 func init() {
 	flag.StringVar(&board_flag, "board", "",
-			"Board String (R)ed, (B)lue, (G)reen, (L)ight, (D)ark, (H)eart, (P)oison), (M)ortal Poison, (J)ammer, B(o)mb")
-	flag.IntVar(&board_width, "width", 6, "Board width. Default: 6 (for 6x5)")
-	flag.IntVar(&combo_flag, "combo", 7, "Minimum number of combos to stop matching at. Default: 7")
+			"Board String (R)ed, (B)lue, (G)reen, (L)ight, (D)ark, (H)eart, (P)oison), (M)ortal Poison, (J)ammer, B(o)mb.")
+	flag.IntVar(&board_width, "width", 6, "Board width. Defaults to 6x5")
+	flag.IntVar(&combo_flag, "combo", 7, "Minimum number of combos to stop matching at.")
+	flag.BoolVar(&diagonals_flag, "diagonals", false, "Whether to allow diagonals.")
 	flag.Parse()
 
 	if board_width < 5 || board_width > 7 {
@@ -36,7 +38,7 @@ func main() {
 	// swng_board := CreateBoard("RRHHHDGDGGGDGDDRRRRDRGGDGRRDDG", 6)
 	// combos := swng_board.GetAllCombos()
 	// fmt.Println(combos)
-	requirement := SolveRequirement{combo_flag}
+	requirement := SolveRequirement{combo_flag, diagonals_flag}
 
 	fmt.Printf("Solving board:\n%s", board_to_solve)
 

@@ -61,6 +61,7 @@ func (self BfsState) Clone() BfsState {
 	copied.current_pos = self.current_pos
 	copied.current_board = self.current_board.Clone()
 	copy(copied.moves, self.moves)
+	// Note: Parent is not copied
 	// fmt.Println(self.moves)
 	return copied
 }
@@ -102,6 +103,7 @@ func (self BfsState) NextStates() []BfsState {
 		next_state.current_board = new_board
 		next_state.moves = append(next_state.moves, direction)
 		next_state.current_pos = next_placement
+		// next_state.parent = &self
 		next_states = append(next_states, next_state)
 	}
 	return next_states
@@ -132,6 +134,7 @@ func (q *CircularQueue) Push(n *BfsState) {
 		q.nodes = nodes
 	}
 	q.nodes[q.tail] = n
+	// fmt.Printf("Pushing state %s at position: %d\n", DirectionsToString((*n).moves), q.tail)
 	q.tail = (q.tail + 1) % len(q.nodes)
 	q.count++
 }
@@ -142,6 +145,7 @@ func (q *CircularQueue) Pop() *BfsState {
 		return nil
 	}
 	node := q.nodes[q.head]
+	// fmt.Printf("Popping state %s at position: %d\n", DirectionsToString((*node).moves), q.head)
 	q.head = (q.head + 1) % len(q.nodes)
 	q.count--
 	return node
@@ -149,7 +153,7 @@ func (q *CircularQueue) Pop() *BfsState {
 
 func (s BfsFourDirectionSolver) Solve(board Board, requirements SolveRequirement) Moves {
 	// Initialize States
-	queue := CircularQueue{nodes: make([]*BfsState, 1 << 20)}
+	queue := CircularQueue{nodes: make([]*BfsState, 1 << 10)}
   for y := uint8(0); y < board.Height; y++ {
 		for x := uint8(0); x < board.Width; x++ {
 			starting_pos := Placement{y, x}
@@ -203,14 +207,14 @@ func (s BfsFourDirectionSolver) Solve(board Board, requirements SolveRequirement
 			}
 		}
 	}
-	fmt.Println(queue.count)
+	// fmt.Println(queue.count)
 
 	best_state := BestState{BfsState{}, 0}
 
 	checked := 0
 	skipped := 0
 
-	known_boards := make(map[string]string)
+	known_boards := make(map[string]bool)
 	for state_ptr := queue.Pop();
 			!Validate(best_state.State.current_board, requirements);
 			state_ptr = queue.Pop() {
@@ -221,36 +225,53 @@ func (s BfsFourDirectionSolver) Solve(board Board, requirements SolveRequirement
 			break
 		}
 		current_state := *state_ptr
+		// fmt.Printf("%s: %s\n", current_state.starting_pos, DirectionsToString(current_state.moves))
+		// fmt.Println(current_state)
 		// fmt.Printf("%d|%d, ", queue.count, len(current_state.moves))
 		board_string := current_state.current_pos.String() + current_state.current_board.SimpleString()
-		if val, exists := known_boards[board_string]; exists {
+		// if board_string == "(1,1)RDHRDBBBDBHLBHGLDBHRRBBDRLLRRL" {
+			// fmt.Println("SPECIAL CASE")
+			// parent := *current_state.parent
+			// fmt.Printf("Parent: %s: %s\n", parent.starting_pos, DirectionsToString(parent.moves))
+		// }
+		if _, exists := known_boards[board_string]; exists {
 			skipped++
-			if len(current_state.moves) < 20 {
-				fmt.Printf("Conflicts: %s, %s | %s, %s\n", board_string, val, current_state.starting_pos, DirectionsToString(current_state.moves))
-			}
-			if skipped > 10 {
-				break
-			}
+			// if len(current_state.moves) < 20 {
+			// 	fmt.Printf("Conflicts: %s, %s | %s, %s\n", board_string, val, current_state.starting_pos, DirectionsToString(current_state.moves))
+			// 	if current_state.parent != nil {
+			// 		parent := *current_state.parent
+			// 		fmt.Printf("Parent: %s: %s\n", parent.starting_pos, DirectionsToString(parent.moves))
+			// 	} else {
+			// 		fmt.Println("No parent!")
+			// 	}
+			// }
+			// if skipped > 1000 {
+			// 	fmt.Println(known_boards)
+			// 	break
+			// }
 			// break
 			continue
 		}
-		// fmt.Printf("Checked %d\n", checked)
-		known_boards[board_string] = current_state.starting_pos.String() + DirectionsToString(current_state.moves)
+		known_boards[board_string] = true // current_state.starting_pos.String() + DirectionsToString(current_state.moves)
 
-		checked += 1
-		// fmt.Printf("%s\n", len(current_state.moves))
+		checked++
 		// fmt.Printf("%s\n", current_state.current_board.GetAllCombos())
 		if len(current_state.current_board.GetAllCombos()) > best_state.Combos {
 			best_state.State = current_state
 			best_state.Combos = len(current_state.current_board.GetAllCombos())
 		}
 		next_states := current_state.NextStates()
-		for _, next_state := range next_states {
+		// 		for _, next_state := range current_state.NextStates() {
+		for i := 0; i < len(next_states); i++ {
 			// fmt.Printf("%d\n", len(next_states))
+			next_state := next_states[i]
+			// fmt.Printf("Adding state - %s: %s\n", next_state.starting_pos, DirectionsToString(next_state.moves))
 			queue.Push(&next_state)
 		}
+		// Check every 100,000 iterations
 		if checked % 100000 == 0 {
-			fmt.Printf("Checked %d\n", checked)
+			current_moves := Moves{best_state.State.starting_pos, best_state.State.moves}
+			fmt.Printf("Checked %d Best move (%dc): %s\n", checked, best_state.Combos, current_moves)
 		}
 	}
 	fmt.Println(best_state.State.current_board)

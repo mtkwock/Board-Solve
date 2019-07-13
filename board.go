@@ -502,10 +502,38 @@ func (self Board) GetCombos() ([]BoardCombo, Board) {
 	return combos, self
 }
 
+func (self Board) DropOrbs() {
+	// new_to_old := map[uint8]uint8
+	for y := self.Height - 1; y > 0; y-- {
+		for x := uint8(0); x < self.Width; x++ {
+			if self.GetOrbAt(Placement{y, x}).Attribute != EMPTY {
+				continue
+			}
+			pos := Placement{y, x}.ToPos(self)
+			for yo := y - 1; yo < self.Height; yo-- {
+				new_pos := Placement{yo, x}.ToPos(self)
+				moved_orb := self.Slots[new_pos].Orb
+				if moved_orb.Attribute != EMPTY {
+					self.Slots[pos].Orb = moved_orb
+					self.Slots[new_pos].Orb = Orb{EMPTY, 0}
+					// new_to_old[new_pos] = pos
+					break
+				}
+			}
+		}
+	}
+	// return new_to_old
+}
+
 func (self Board) GetAllCombos() []BoardCombo {
 	// fmt.Println(self)
 	all_combos := make([]BoardCombo, 0)
 	current_board := self.Clone()
+	// To determine the positions of the originally removed orbs.
+	// new_to_old := map[uint8]uint8
+	// for i := uint8(0); i < uint8(len(self.Slots)); i++ {
+	// 	new_to_old[i] = i
+	// }
 	for new_combos, current_board := current_board.GetCombos(); len(new_combos) > 0; new_combos, current_board = current_board.GetCombos() {
 		all_combos = append(all_combos, new_combos...)
 		// fmt.Println(new_combos)
@@ -514,24 +542,15 @@ func (self Board) GetAllCombos() []BoardCombo {
 				current_board.Slots[placement.ToPos(current_board)].Orb.Attribute = EMPTY
 			}
 		}
-		// fmt.Println(current_board)
-		for y := self.Height - 1; y > 0; y-- {
-			for x := uint8(0); x < self.Width; x++ {
-				if current_board.GetOrbAt(Placement{y, x}).Attribute != EMPTY {
-					continue
-				}
-				pos := Placement{y, x}.ToPos(current_board)
-				for yo := y - 1; yo < self.Height; yo-- {
-					new_pos := Placement{yo, x}.ToPos(current_board)
-					moved_orb := current_board.Slots[new_pos].Orb
-					if moved_orb.Attribute != EMPTY {
-						current_board.Slots[pos].Orb = moved_orb
-						current_board.Slots[new_pos].Orb = Orb{EMPTY, 0}
-						break
-					}
-				}
-			}
-		}
+		current_board.DropOrbs()
+		// for new, old := range new_to_old {
+		// 	if val, exists := newer_map[old]; exists {
+		// 		new_to_old[val]
+		// 	}
+		// }
+		// for new, old := range newer_map {
+		// 	 new_to_old[]
+		// }
 		// fmt.Println(current_board)
 	}
 	return all_combos

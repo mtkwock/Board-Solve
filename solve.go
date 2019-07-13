@@ -310,6 +310,8 @@ func (s BfsFourDirectionSolver) Solve(board Board, requirements SolveRequirement
 		if len(current_state.current_board.GetAllCombos()) > best_state.Combos {
 			best_state.State = current_state
 			best_state.Combos = len(current_state.current_board.GetAllCombos())
+			current_moves := Moves{best_state.State.starting_pos, best_state.State.moves}
+			fmt.Printf("Current best (%dc): %s\n", best_state.Combos, current_moves)
 		}
 		next_states := current_state.NextStates(requirements)
 		// 		for _, next_state := range current_state.NextStates() {
@@ -319,10 +321,9 @@ func (s BfsFourDirectionSolver) Solve(board Board, requirements SolveRequirement
 			// fmt.Printf("Adding state - %s: %s\n", next_state.starting_pos, DirectionsToString(next_state.moves))
 			queue.Push(&next_state)
 		}
-		// Check every 100,000 iterations
-		if checked % 100000 == 0 {
-			current_moves := Moves{best_state.State.starting_pos, best_state.State.moves}
-			fmt.Printf("Checked %d Best move (%dc): %s\n", checked, best_state.Combos, current_moves)
+		// Check every 1,000,000 iterations
+		if checked % 1000000 == 0 {
+			fmt.Printf("Checked %d\n", checked)
 		}
 	}
 	fmt.Println(best_state.State.current_board)

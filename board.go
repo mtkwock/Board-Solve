@@ -5,7 +5,7 @@ import (
 	"fmt"
 	// "unsafe"
 	"strings"
-	// "math/rand" // Runs deterministically unless we set a seed.
+	"math/rand" // Runs deterministically unless we set a seed.
 	// "testing"
 )
 
@@ -558,6 +558,15 @@ func (self Board) GetAllCombos() []BoardCombo {
 
 func CreateEmptyBoard(width uint8) Board {
 	return Board{make([]BoardSpace, width * (width - 1)), width - 1, width}
+}
+
+func CreateRandomBoard(width uint8) Board {
+	size := width * (width - 1)
+	slots := make([]BoardSpace, size)
+	for i := uint8(0); i < size; i++ {
+		slots[i].Orb.Attribute = OrbAttribute(uint8(rand.Intn(6) + 1))
+	}
+	return Board{slots, width - 1, width}
 }
 
 func CreateBoard(s string, width int) Board {

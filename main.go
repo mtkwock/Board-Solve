@@ -3,6 +3,8 @@ package main
 import (
 	"flag"
 	"fmt"
+	"strings"
+	"strconv"
 )
 
 var board_flag string
@@ -23,7 +25,7 @@ func init() {
 		panic("Board width should be in the range [5,7]")
 	}
 	if board_flag == "" {
-		board_to_solve = CreateBoard("BLRBRLHHLLBRHRBBHBRBLBRGLRBDRG", 6)
+		board_to_solve = CreateRandomBoard(uint8(board_width))
 		return
 	}
 
@@ -34,10 +36,26 @@ func init() {
 	board_to_solve = CreateBoard(board_flag, board_width)
 }
 
+// Get a string that links to Dawnglare for the given board and moves.
+func ToDawnglare(board Board, moves Moves) string {
+	dawnglare_pattern := "https://pad.dawnglare.com/?height=%d&width=%d&patt=%s&replay=%s"
+	height := int(board.Height)
+	width := int(board.Width)
+
+	// Convert the movements into positions for Dawnglare to use.
+	positions := make([]string, len(moves.Directions) + 1)
+	current_placement := moves.StartingPosition
+	positions[0] = strconv.Itoa(int(current_placement.ToPos(board)))
+	for i, direction := range moves.Directions {
+		current_placement = current_placement.Swap(direction)
+		positions[i + 1] = strconv.Itoa(int(current_placement.ToPos(board)))
+	}
+	move_string := strings.Join(positions, "|")
+
+	return fmt.Sprintf(dawnglare_pattern, height, width, board.SimpleString(), move_string)
+}
+
 func main() {
-	// swng_board := CreateBoard("RRHHHDGDGGGDGDDRRRRDRGGDGRRDDG", 6)
-	// combos := swng_board.GetAllCombos()
-	// fmt.Println(combos)
 	requirement := SolveRequirement{combo_flag, diagonals_flag}
 
 	fmt.Printf("Solving board:\n%s", board_to_solve)
@@ -45,4 +63,5 @@ func main() {
 	moves := BfsFourDirectionSolver{}.Solve(board_to_solve, requirement)
 
 	fmt.Println(moves)
+	fmt.Println(ToDawnglare(board_to_solve, moves))
 }

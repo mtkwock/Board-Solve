@@ -1,16 +1,18 @@
 package main
 
 import (
+	"container/heap"
 	"fmt"
 )
 
 type SolveRequirement struct {
-	ComboMinimum int
-	Diagonals bool
-	// TODO: Add different types of requirements
-	// Max number of moves
-	// Minimum color combos
-	// Minimum combo types
+	AllowDiagonals bool
+	// Determines if a state meets the goal.
+	FinishedFn func(AStarState) bool
+	// Determines if a state should be ignored.
+	RejectionFn func(AStarState) bool
+	// Determines and updates a state's score.
+	ScoreState func(AStarState) int
 }
 
 type Moves struct {
@@ -43,33 +45,24 @@ func (self Moves) String() string {
 	return result
 }
 
-type BoardSolver interface {
-	Solve(Board, SolveRequirement) Moves
-}
-
-type BfsFourDirectionSolver struct {}
-
-type BfsState struct {
-	current_board Board
+type AStarState struct {
+	board Board
 	starting_pos Placement
 	current_pos Placement
 	moves []Direction
+	// combos []BoardCombo // Should we store this?
+	score int
 }
 
-func (self BfsState) Clone() BfsState {
-	copied := BfsState{moves: make([]Direction, len(self.moves))}
+func (self AStarState) Clone() AStarState {
+	copied := AStarState{moves: make([]Direction, len(self.moves))}
 	copied.starting_pos = self.starting_pos
 	copied.current_pos = self.current_pos
-	copied.current_board = self.current_board.Clone()
+	copied.board = self.board.Clone()
 	copy(copied.moves, self.moves)
 	// Note: Parent is not copied
 	// fmt.Println(self.moves)
 	return copied
-}
-
-type BestState struct {
-	State BfsState
-	Combos int
 }
 
 var DirectionReverse map[Direction]Direction = map[Direction]Direction {
@@ -83,29 +76,28 @@ var DirectionReverse map[Direction]Direction = map[Direction]Direction {
 	UP_RIGHT: DOWN_LEFT,
 }
 
-func (self BfsState) NextStates(requirements SolveRequirement) []BfsState {
-	next_states := make([]BfsState, 0)
+func (self AStarState) NextStates(requirements SolveRequirement) []AStarState {
+	next_states := make([]AStarState, 0)
 	reverse_move := DirectionReverse[self.moves[len(self.moves) - 1]]
 	moves := []Direction{RIGHT, DOWN, LEFT, UP}
-	if requirements.Diagonals {
+	if requirements.AllowDiagonals {
 		moves = []Direction{RIGHT, DOWN_RIGHT, DOWN, DOWN_LEFT, LEFT, UP_LEFT, UP, UP_RIGHT}
 	}
 	for _, direction := range moves {
-		// fmt.Printf("BfsState: %s", self)
 		if direction == reverse_move {
 			continue
 		}
 		next_placement := self.current_pos.Swap(direction)
-		if next_placement.Y >= self.current_board.Height ||
-		   next_placement.X >= self.current_board.Width {
+		if next_placement.Y >= self.board.Height ||
+		   next_placement.X >= self.board.Width {
 			continue
 		}
 		next_state := self.Clone()
-		new_board, err := next_state.current_board.Swap(self.current_pos, direction)
+		new_board, err := next_state.board.Swap(self.current_pos, direction)
 		if err != nil {
 			continue
 		}
-		next_state.current_board = new_board
+		next_state.board = new_board
 		next_state.moves = append(next_state.moves, direction)
 		next_state.current_pos = next_placement
 		// next_state.parent = &self
@@ -114,24 +106,109 @@ func (self BfsState) NextStates(requirements SolveRequirement) []BfsState {
 	return next_states
 }
 
-func Validate(board Board, requirement SolveRequirement) bool {
-	combos := board.GetAllCombos()
-	return len(combos) >= requirement.ComboMinimum
+// Implementation of Heap which keeps a circular queue as underlying data.
+type StatePriorityQueue struct {
+	data []*AStarState
+	head int
+	tail int
+	count int
 }
+
+func (self StatePriorityQueue) Len() int {
+	return self.count
+}
+
+func (self StatePriorityQueue) ToLocal(i int) int {
+	return (i + self.head) % len(self.data)
+}
+
+func (self *StatePriorityQueue) Less(i, j int) bool {
+	return self.data[self.ToLocal(i)].score > self.data[self.ToLocal(j)].score
+}
+
+func (self *StatePriorityQueue) Swap(i, j int) {
+	// fmt.Println(i, j)
+	local_i, local_j := self.ToLocal(i), self.ToLocal(j)
+	self.data[local_i], self.data[local_j] = self.data[local_j], self.data[local_i]
+}
+
+func (self *StatePriorityQueue) Push(x interface{}) {
+	if self.head == self.tail && self.count > 0 {
+		new_data := make([]*AStarState, len(self.data) * 2)
+		copy(new_data, self.data[self.head:])
+		copy(new_data[len(self.data) - self.head:], self.data[:self.head])
+		self.head = 0
+		self.tail = len(self.data)
+		self.data = new_data
+	}
+	self.data[self.tail] = x.(*AStarState)
+	self.tail = (self.tail + 1) % len(self.data)
+	self.count++
+	// fmt.Println(self.count)
+}
+
+func (self *StatePriorityQueue) Pop() interface{} {
+	if self.count == 0 {
+		return nil
+	}
+	// fmt.Printf("Popping from %d\n", self.head)
+	// fmt.Println(self.data[self.head] == self.data[self.head + 1])
+	state := self.data[self.head]
+	// fmt.Printf("Popping state %s at position: %d\n", DirectionsToString((*node).moves), q.head)
+	self.head = (self.head + 1) % len(self.data)
+	self.count--
+	return state
+}
+
+func MakePriorityQueue(size int) StatePriorityQueue {
+	data := make([]*AStarState, size)
+	queue := StatePriorityQueue{data, 0, 0, 0}
+	heap.Init(&queue)
+	return queue
+}
+
+// type StateHeap struct {
+// 	// Note that the first value of AStarState is empty
+// 	nodes []*AStarState
+// 	// Keeps track of current last value.
+// 	tail int
+// }
+//
+// func (self *StateHeap) bubble() {
+//
+// }
+//
+// func (self *StateHeap) Push(n *AStarState) {
+// 	new_score := self.Score(n)
+//
+// 	if self.tail > len(self.nodes) && self.count > 0 {
+// 		nodes := make([]*AStarState, len(self.nodes) * 2)
+// 		copy(nodes, self.nodes)
+// 		self.nodes = nodes
+// 	}
+// 	self.nodes[tail] = n
+// 	self.bubble()
+// }
+//
+// func MakeHeap(size int) StateHeap {
+// 	nodes := make([]*AStarState, size + 1)
+// 	nodes[0] = nil
+// 	return StateHeap{nodes, 1}
+// }
 
 // CircularQueue code copied from https://stackoverflow.com/a/11757161
 // CircularQueue is a basic FIFO CircularQueue based on a circular list that resizes as needed.
 type CircularQueue struct {
-	nodes	[]*BfsState
+	nodes	[]*AStarState
 	head	int
 	tail	int
 	count	int
 }
 
 // Push adds a node to the CircularQueue.
-func (q *CircularQueue) Push(n *BfsState) {
+func (q *CircularQueue) Push(n *AStarState) {
 	if q.head == q.tail && q.count > 0 {
-		nodes := make([]*BfsState, len(q.nodes)*2)
+		nodes := make([]*AStarState, len(q.nodes)*2)
 		copy(nodes, q.nodes[q.head:])
 		copy(nodes[len(q.nodes)-q.head:], q.nodes[:q.head])
 		q.head = 0
@@ -145,7 +222,7 @@ func (q *CircularQueue) Push(n *BfsState) {
 }
 
 // Pop removes and returns a node from the CircularQueue in first to last order.
-func (q *CircularQueue) Pop() *BfsState {
+func (q *CircularQueue) Pop() *AStarState {
 	if q.count == 0 {
 		return nil
 	}
@@ -156,180 +233,93 @@ func (q *CircularQueue) Pop() *BfsState {
 	return node
 }
 
-func (s BfsFourDirectionSolver) Solve(board Board, requirements SolveRequirement) Moves {
+func AStarSolve(board Board, requirements SolveRequirement) Moves {
 	// Initialize States
-	queue := CircularQueue{nodes: make([]*BfsState, 1 << 10)}
+
+	// queue := CircularQueue{nodes: make([]*AStarState, 1 << 10)}
+	queue := MakePriorityQueue(1 << 10)
+	moves := []Direction{RIGHT, DOWN, LEFT, UP}
+	if requirements.AllowDiagonals {
+		moves = []Direction{RIGHT, DOWN_RIGHT, DOWN, DOWN_LEFT, LEFT, UP_LEFT, UP, UP_RIGHT}
+	}
   for y := uint8(0); y < board.Height; y++ {
 		for x := uint8(0); x < board.Width; x++ {
 			starting_pos := Placement{y, x}
-			if x < board.Width - 1 {
-				board, err := board.Swap(starting_pos, RIGHT)
-				if err == nil {
-					// new_state :=
-					queue.Push(&BfsState {
-						board,
-						starting_pos,
-						starting_pos.Swap(RIGHT),
-						[]Direction{RIGHT},
-					})
+			for i := 0; i < len(moves); i++ {
+				move := moves[i]
+				board, err := board.Swap(starting_pos, move)
+				if err != nil {
+					continue
 				}
-				if requirements.Diagonals && y < board.Height - 1 {
-					board_diagonal, err := board.Swap(starting_pos, DOWN_RIGHT)
-					if err == nil {
-						// new_diagonal :=
-						queue.Push(&BfsState {
-							board_diagonal,
-							starting_pos,
-							starting_pos.Swap(DOWN_RIGHT),
-							[]Direction{DOWN_RIGHT},
-						})
-					}
+				new_state := AStarState{
+					board,
+					starting_pos,
+					starting_pos.Swap(move),
+					[]Direction{move},
+					0,
 				}
-			}
-			if y < board.Height - 1 {
-				board, err := board.Swap(starting_pos, DOWN)
-				if err == nil {
-					// new_state :=
-					queue.Push(&BfsState {
-						board,
-						starting_pos,
-						starting_pos.Swap(DOWN),
-						[]Direction{DOWN},
-					})
-				}
-				if requirements.Diagonals && x > 0 {
-					board_diagonal, err := board.Swap(starting_pos, DOWN_LEFT)
-					if err == nil {
-						// new_diagonal :=
-						queue.Push(&BfsState {
-							board_diagonal,
-							starting_pos,
-							starting_pos.Swap(DOWN_LEFT),
-							[]Direction{DOWN_LEFT},
-						})
-					}
-				}			}
-			if x > 0 {
-				board, err := board.Swap(starting_pos, LEFT)
-				if err == nil {
-					// new_state :=
-					queue.Push(&BfsState {
-						board,
-						starting_pos,
-						starting_pos.Swap(LEFT),
-						[]Direction{LEFT},
-					})
-					if requirements.Diagonals && y < 0 {
-						board_diagonal, err := board.Swap(starting_pos, UP_LEFT)
-						if err == nil {
-							queue.Push(&BfsState {
-								board_diagonal,
-								starting_pos,
-								starting_pos.Swap(UP_LEFT),
-								[]Direction{UP_LEFT},
-							})
-						}
-					}
-				}
-			}
-			if y > 0 {
-				board, err := board.Swap(starting_pos, UP)
-				if err == nil {
-					// new_state :=
-					queue.Push(&BfsState {
-						board,
-						starting_pos,
-						starting_pos.Swap(UP),
-						[]Direction{UP},
-					})
-					if requirements.Diagonals && x < board.Width - 1 {
-						board_diagonal, err := board.Swap(starting_pos, UP_RIGHT)
-						if err == nil {
-							// new_diagonal :=
-							queue.Push(&BfsState {
-								board_diagonal,
-								starting_pos,
-								starting_pos.Swap(UP_RIGHT),
-								[]Direction{UP_RIGHT},
-							})
-						}
-					}
+				if !requirements.RejectionFn(new_state) {
+					heap.Push(&queue, &new_state)
+					// queue.Push(&new_state)
 				}
 			}
 		}
 	}
-	// fmt.Println(queue.count)
+	fmt.Printf("Queue initial size: %d\n", queue.count)
 
-	best_state := BestState{BfsState{}, 0}
+	best_state := AStarState{}
 
 	checked := 0
 	skipped := 0
 
-	known_boards := make(map[string]bool)
-	for state_ptr := queue.Pop();
-			!Validate(best_state.State.current_board, requirements);
-			state_ptr = queue.Pop() {
+	var last_ptr *AStarState = nil
+	for state_ptr := heap.Pop(&queue).(*AStarState);
+			!requirements.FinishedFn(best_state);
+			state_ptr = heap.Pop(&queue).(*AStarState) {
 		if state_ptr == nil {
-			// fmt.Println(known_boards)
-			fmt.Printf("Known Board size: %d\n", len(known_boards))
-			// fmt.Println(queue.count)
+			fmt.Println("Ran out of boards to check, exiting.")
 			break
 		}
-		current_state := *state_ptr
-		// fmt.Printf("%s: %s\n", current_state.starting_pos, DirectionsToString(current_state.moves))
-		// fmt.Println(current_state)
-		// fmt.Printf("%d|%d, ", queue.count, len(current_state.moves))
-		board_string := current_state.current_pos.String() + current_state.current_board.SimpleString()
-		// if board_string == "(1,1)RDHRDBBBDBHLBHGLDBHRRBBDRLLRRL" {
-			// fmt.Println("SPECIAL CASE")
-			// parent := *current_state.parent
-			// fmt.Printf("Parent: %s: %s\n", parent.starting_pos, DirectionsToString(parent.moves))
-		// }
-		if _, exists := known_boards[board_string]; exists {
-			skipped++
-			// if len(current_state.moves) < 20 {
-			// 	fmt.Printf("Conflicts: %s, %s | %s, %s\n", board_string, val, current_state.starting_pos, DirectionsToString(current_state.moves))
-			// 	if current_state.parent != nil {
-			// 		parent := *current_state.parent
-			// 		fmt.Printf("Parent: %s: %s\n", parent.starting_pos, DirectionsToString(parent.moves))
-			// 	} else {
-			// 		fmt.Println("No parent!")
-			// 	}
-			// }
-			// if skipped > 1000 {
-			// 	fmt.Println(known_boards)
-			// 	break
-			// }
-			// break
-			continue
+		if state_ptr == last_ptr {
+			fmt.Println((*state_ptr).moves)
+			panic("This should not happen.")
 		}
-		known_boards[board_string] = true // current_state.starting_pos.String() + DirectionsToString(current_state.moves)
+		last_ptr = state_ptr
+		current_state := *state_ptr
 
-		checked++
-		// fmt.Printf("%s\n", current_state.current_board.GetAllCombos())
-		if len(current_state.current_board.GetAllCombos()) > best_state.Combos {
-			best_state.State = current_state
-			best_state.Combos = len(current_state.current_board.GetAllCombos())
-			current_moves := Moves{best_state.State.starting_pos, best_state.State.moves}
-			fmt.Printf("Current best (%dc): %s\n", best_state.Combos, current_moves)
+		requirements.ScoreState(current_state)
+		// fmt.Printf("%s\n", current_state.board.GetAllCombos())
+		if current_state.score > best_state.score {
+			best_state = current_state
+			// best_state.Combos = len(current_state.board.GetAllCombos())
+			current_moves := Moves{current_state.starting_pos, current_state.moves}
+			fmt.Printf("Current best with score of %d\n%s\n", best_state.score, current_moves)
 		}
 		next_states := current_state.NextStates(requirements)
 		// 		for _, next_state := range current_state.NextStates() {
 		for i := 0; i < len(next_states); i++ {
 			// fmt.Printf("%d\n", len(next_states))
 			next_state := next_states[i]
+			next_state.score = requirements.ScoreState(next_state)
+			if requirements.RejectionFn(next_state) {
+				skipped++
+				break
+			}
 			// fmt.Printf("Adding state - %s: %s\n", next_state.starting_pos, DirectionsToString(next_state.moves))
-			queue.Push(&next_state)
+			// queue.Push(&next_state)
+			heap.Push(&queue, &next_state)
 		}
 		// Check every 1,000,000 iterations
+		checked++
 		if checked % 1000000 == 0 {
-			fmt.Printf("Checked %d\n", checked)
+			fmt.Printf("Checked: %d, Skipped: %d\n", checked, skipped)
 		}
 	}
-	fmt.Println(best_state.State.current_board)
-	combos := best_state.State.current_board.GetAllCombos()
+	fmt.Printf("Finished after %d checks with %d skipped.\n", checked, skipped)
+	fmt.Println(best_state.board)
+	combos := best_state.board.GetAllCombos()
 	for _, combo := range combos {
 		combo.Print(board.Width)
 	}
-	return Moves{best_state.State.starting_pos, best_state.State.moves}
+	return Moves{best_state.starting_pos, best_state.moves}
 }

@@ -361,11 +361,12 @@ func (self Board) GetCombos() ([]BoardCombo, Board) {
 			}
 
 			// Determine matches to the left.
-			if (x > 2) {
+			if (x > 1) {
 				orb_next := self.GetOrbAt(Placement{placement.Y, placement.X - 1})
 				if orb.Attribute == orb_next.Attribute {
 					orb_next_next := self.GetOrbAt(Placement{placement.Y, placement.X - 2})
 					if orb.Attribute == orb_next_next.Attribute {
+						fmt.Println(y, x)
 						marked_combos[position] = true
 						marked_combos[position - 1] = true
 						marked_combos[position - 2] = true
@@ -389,7 +390,7 @@ func (self Board) GetCombos() ([]BoardCombo, Board) {
 			}
 
 			// Determine matches above.
-			if (y > 2) {
+			if (y > 1) {
 				orb_next := self.GetOrbAt(Placement{placement.Y - 1, placement.X})
 				if orb.Attribute == orb_next.Attribute {
 					orb_next_next := self.GetOrbAt(Placement{placement.Y - 2, placement.X})

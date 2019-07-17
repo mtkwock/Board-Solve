@@ -3,119 +3,51 @@ package main
 import (
 	"errors"
 	"fmt"
-	// "unsafe"
 	"strings"
 	"math/rand" // Runs deterministically unless we set a seed.
-	// "testing"
 )
 
-type OrbAttribute uint8
-
-const (
-	EMPTY OrbAttribute = iota
-	FIRE
-	WATER
-	WOOD
-	LIGHT
-	DARK
-	HEART
-	JAMMER
-	POISON
-	MORTAL_POISON
-	BOMB
-)
-
-var AttributeToName map[OrbAttribute]string = map[OrbAttribute]string{
-	EMPTY: "EMPTY",
-	FIRE: "Fire",
-	WATER: "Water",
-	WOOD: "Wood",
-	LIGHT: "Light",
-	DARK: "Dark",
-	HEART: "Heart",
-	JAMMER: "Jammer",
-	POISON: "Poison",
-	MORTAL_POISON: "Mortal Poison",
-	BOMB: "Bomb",
+type Placement struct {
+	Y uint8
+	X uint8
 }
 
-var AttributeToLetter map[OrbAttribute]string = map[OrbAttribute]string{
-	EMPTY: " ",
-	FIRE: "R",
-	WATER: "B",
-	WOOD: "G",
-	LIGHT: "L",
-	DARK: "D",
-	HEART: "H",
-	JAMMER: "J",
-	POISON: "P",
-	MORTAL_POISON: "M",
-	BOMB: "o",
+func (self Placement) ToPos(board Board) uint8 {
+	return self.Y * board.Width + self.X
 }
 
-var LetterToAttribute map[string]OrbAttribute = invertLetters()
+func (self Placement) String() string {
+	return fmt.Sprintf("(%d,%d)", self.Y, self.X)
+}
 
-func invertLetters() map[string]OrbAttribute {
-	result := make(map[string]OrbAttribute)
-	for attribute, repr := range AttributeToLetter {
-		result[repr] = attribute
+func (self Placement) Swap(direction Direction) Placement {
+	new_placement := Placement{self.Y, self.X}
+	// TODO: Consider changing this to a hashmap of placement, direction: placement.
+	// Will need to profile if faster or not.
+	switch direction {
+	case UP:
+		new_placement.Y--
+  case UP_RIGHT:
+		new_placement.Y--
+		new_placement.X++
+	case RIGHT:
+		new_placement.X++
+	case DOWN_RIGHT:
+		new_placement.Y++
+		new_placement.X++
+	case DOWN:
+		new_placement.Y++
+	case DOWN_LEFT:
+		new_placement.Y++
+		new_placement.X--
+	case LEFT:
+		new_placement.X--
+	case UP_LEFT:
+		new_placement.Y--
+		new_placement.X--
 	}
-	return result
+	return new_placement
 }
-
-
-var NormalOrbs [6]OrbAttribute = [6]OrbAttribute{
-	FIRE, WATER, WOOD, LIGHT, DARK, HEART}
-var HazardOrbs [4]OrbAttribute = [4]OrbAttribute{
-	JAMMER, POISON, MORTAL_POISON, BOMB}
-
-type OrbStateFlag uint8
-
-const (
-  ENHANCED OrbStateFlag = 1 << iota
-	LOCKED
-	BLIND
-	STICKY_BLIND
-	UNMATCHABLE
-)
-
-type Orb struct {
-	Attribute OrbAttribute
-	State OrbStateFlag
-}
-
-func (self Orb) Clone() Orb {
-	return Orb{self.Attribute, self.State}
-}
-
-func (self Orb) IsBlinded() bool {
-	return self.State & (BLIND | STICKY_BLIND) != 0
-}
-
-func (self Orb) String() string {
-	locked := " "
-	if self.State & LOCKED != 0 {
-		locked = "&"
-	}
-	char := AttributeToLetter[self.Attribute]
-	if self.IsBlinded() {
-		char = "?"
-	}
-  enhanced := " "
-	if self.State & ENHANCED != 0 {
-		enhanced = "+"
-	}
-	return locked + char + enhanced
-}
-
-type BoardSpaceStateFlag uint8
-
-const (
-	TAPE BoardSpaceStateFlag = 1 << iota
-	CLOUD
-	SPINNER_1S
-	SPINNER_2S
-)
 
 type BoardSpace struct {
 	Orb Orb
@@ -175,62 +107,6 @@ func (self Board) SimpleString() string {
 	return string(result)
 }
 
-type Direction uint8
-
-const (
-	_ = iota
-	UP Direction = iota
-	UP_RIGHT
-	RIGHT
-	DOWN_RIGHT
-	DOWN
-	DOWN_LEFT
-	LEFT
-	UP_LEFT
-)
-
-type Placement struct {
-	Y uint8
-	X uint8
-}
-
-func (self Placement) ToPos(board Board) uint8 {
-	return self.Y * board.Width + self.X
-}
-
-func (self Placement) String() string {
-	return fmt.Sprintf("(%d,%d)", self.Y, self.X)
-}
-
-func (self Placement) Swap(direction Direction) Placement {
-	new_placement := Placement{self.Y, self.X}
-	// TODO: Consider changing this to a hashmap of placement, direction: placement.
-	// Will need to profile if faster or not.
-	switch direction {
-	case UP:
-		new_placement.Y--
-  case UP_RIGHT:
-		new_placement.Y--
-		new_placement.X++
-	case RIGHT:
-		new_placement.X++
-	case DOWN_RIGHT:
-		new_placement.Y++
-		new_placement.X++
-	case DOWN:
-		new_placement.Y++
-	case DOWN_LEFT:
-		new_placement.Y++
-		new_placement.X--
-	case LEFT:
-		new_placement.X--
-	case UP_LEFT:
-		new_placement.Y--
-		new_placement.X--
-	}
-	return new_placement
-}
-
 func (self Board) Swap(placement Placement, direction Direction) (Board, error) {
 	new_placement := placement.Swap(direction)
 
@@ -256,17 +132,6 @@ func (self Board) Swap(placement Placement, direction Direction) (Board, error) 
 	return new_board, nil
 }
 
-type ComboType uint8
-
-const (
-	MATCH_3 ComboType = iota
-	MATCH_TPA
-  MATCH_CROSS
-	MATCH_L
-	MATCH_COLUMN
-	MATCH_VDP
-)
-
 type BoardCombo struct {
 	Attribute OrbAttribute
 	Positions []Placement
@@ -286,8 +151,6 @@ func (self BoardCombo) Print(width uint8) {
 	fmt.Println(board)
 }
 
-type BoardCombos map[uint8]uint8
-
 // type BoardRestriction uint16
 //
 // const (
@@ -301,26 +164,10 @@ type BoardCombos map[uint8]uint8
 // 	RESTRICT_POISON
 // )
 
-// Ideas:
-// Simple iteration
-// 1. Iterate through board y and x-2, finding all three-match groups horizontally
-// 2 .Iterate through board y-2 and x, finding all three-match groups vertically
-// 3. Group these up iteratively by finding combos that border or intersect.
-
-// 0.1. Build a lookup table of all possible combos
-// 0.2. Build a lookup table of all combos that map to each other.
-// 1. Using (0.1)'s table,
-
-// 1) Iterate through all orbs and find if they're going to combo out.
-// 2) Iterate through all comboed orbs and blob together orbs that are same
-//    color and comboing.
-
-var EmptyOrb Orb = Orb{EMPTY, 0}
-
 func (self Board) GetOrbAt(placement Placement) Orb {
 	// Guard Clause
 	if placement.Y >= self.Height || placement.X >= self.Width {
-		return EmptyOrb
+		return Orb{EMPTY, 0}
 	}
 	return self.Slots[placement.ToPos(self)].Orb
 }
@@ -366,7 +213,7 @@ func (self Board) GetCombos() ([]BoardCombo, Board) {
 				if orb.Attribute == orb_next.Attribute {
 					orb_next_next := self.GetOrbAt(Placement{placement.Y, placement.X - 2})
 					if orb.Attribute == orb_next_next.Attribute {
-						fmt.Println(y, x)
+						// fmt.Println(y, x)
 						marked_combos[position] = true
 						marked_combos[position - 1] = true
 						marked_combos[position - 2] = true
@@ -459,7 +306,7 @@ func (self Board) GetCombos() ([]BoardCombo, Board) {
 	is_used := make([]bool, len(self.Slots))
 	combos := make([]BoardCombo, 0)
 
-  // For each orb, use a DFS to
+  // For each orb, use a DFS to find all connected orbs.
 	for i, is_comboed := range marked_combos {
 		if !is_comboed || is_used[i] {
 			continue
@@ -470,24 +317,28 @@ func (self Board) GetCombos() ([]BoardCombo, Board) {
 		placements := []Placement{placement}
 		for j := 0; j < len(placements); j++ {
 			current := placements[j]
+			// Check to the right.
 			pos := current.ToPos(self) + 1
 			right := Placement{current.Y, current.X + 1}
 			if self.GetOrbAt(right).Attribute == attribute && marked_combos[pos] && !is_used[pos] {
 				placements = append(placements, right)
 				is_used[pos] = true
 			}
+			// Check to the left
 			pos -= 2
 			left := Placement{current.Y, current.X - 1}
 			if self.GetOrbAt(left).Attribute == attribute && marked_combos[pos] && !is_used[pos]{
 				placements = append(placements, left)
 				is_used[pos] = true
 			}
+			// Check below
 			pos += self.Width + 1
 			down := Placement{current.Y + 1, current.X}
 			if self.GetOrbAt(down).Attribute == attribute && marked_combos[pos] && !is_used[pos]{
 				placements = append(placements, down)
 				is_used[pos] = true
 			}
+			// Check above
 			pos -= 2 * self.Width
 			up := Placement{current.Y - 1, current.X}
 			if self.GetOrbAt(up).Attribute == attribute && marked_combos[pos] && !is_used[pos]{
@@ -504,7 +355,6 @@ func (self Board) GetCombos() ([]BoardCombo, Board) {
 }
 
 func (self Board) DropOrbs() {
-	// new_to_old := map[uint8]uint8
 	for y := self.Height - 1; y > 0; y-- {
 		for x := uint8(0); x < self.Width; x++ {
 			if self.GetOrbAt(Placement{y, x}).Attribute != EMPTY {
@@ -517,42 +367,24 @@ func (self Board) DropOrbs() {
 				if moved_orb.Attribute != EMPTY {
 					self.Slots[pos].Orb = moved_orb
 					self.Slots[new_pos].Orb = Orb{EMPTY, 0}
-					// new_to_old[new_pos] = pos
 					break
 				}
 			}
 		}
 	}
-	// return new_to_old
 }
 
 func (self Board) GetAllCombos() []BoardCombo {
-	// fmt.Println(self)
 	all_combos := make([]BoardCombo, 0)
 	current_board := self.Clone()
-	// To determine the positions of the originally removed orbs.
-	// new_to_old := map[uint8]uint8
-	// for i := uint8(0); i < uint8(len(self.Slots)); i++ {
-	// 	new_to_old[i] = i
-	// }
 	for new_combos, current_board := current_board.GetCombos(); len(new_combos) > 0; new_combos, current_board = current_board.GetCombos() {
 		all_combos = append(all_combos, new_combos...)
-		// fmt.Println(new_combos)
 		for _, combo := range new_combos {
 			for _, placement := range combo.Positions {
 				current_board.Slots[placement.ToPos(current_board)].Orb.Attribute = EMPTY
 			}
 		}
 		current_board.DropOrbs()
-		// for new, old := range new_to_old {
-		// 	if val, exists := newer_map[old]; exists {
-		// 		new_to_old[val]
-		// 	}
-		// }
-		// for new, old := range newer_map {
-		// 	 new_to_old[]
-		// }
-		// fmt.Println(current_board)
 	}
 	return all_combos
 }

@@ -13,6 +13,8 @@ type SolveRequirement struct {
 	RejectionFn func(AStarState) bool
 	// Determines and updates a state's score.
 	ScoreState func(AStarState) int
+	// Determine allowable starting positions. If empty slice, search all.
+	StartingPositions []Placement
 }
 
 type Moves struct {
@@ -167,35 +169,6 @@ func MakePriorityQueue(size int) StatePriorityQueue {
 	return queue
 }
 
-// type StateHeap struct {
-// 	// Note that the first value of AStarState is empty
-// 	nodes []*AStarState
-// 	// Keeps track of current last value.
-// 	tail int
-// }
-//
-// func (self *StateHeap) bubble() {
-//
-// }
-//
-// func (self *StateHeap) Push(n *AStarState) {
-// 	new_score := self.Score(n)
-//
-// 	if self.tail > len(self.nodes) && self.count > 0 {
-// 		nodes := make([]*AStarState, len(self.nodes) * 2)
-// 		copy(nodes, self.nodes)
-// 		self.nodes = nodes
-// 	}
-// 	self.nodes[tail] = n
-// 	self.bubble()
-// }
-//
-// func MakeHeap(size int) StateHeap {
-// 	nodes := make([]*AStarState, size + 1)
-// 	nodes[0] = nil
-// 	return StateHeap{nodes, 1}
-// }
-
 // CircularQueue code copied from https://stackoverflow.com/a/11757161
 // CircularQueue is a basic FIFO CircularQueue based on a circular list that resizes as needed.
 type CircularQueue struct {
@@ -235,33 +208,37 @@ func (q *CircularQueue) Pop() *AStarState {
 
 func AStarSolve(board Board, requirements SolveRequirement) Moves {
 	// Initialize States
-
 	// queue := CircularQueue{nodes: make([]*AStarState, 1 << 10)}
 	queue := MakePriorityQueue(1 << 10)
 	moves := []Direction{RIGHT, DOWN, LEFT, UP}
 	if requirements.AllowDiagonals {
 		moves = []Direction{RIGHT, DOWN_RIGHT, DOWN, DOWN_LEFT, LEFT, UP_LEFT, UP, UP_RIGHT}
 	}
-  for y := uint8(0); y < board.Height; y++ {
-		for x := uint8(0); x < board.Width; x++ {
-			starting_pos := Placement{y, x}
-			for i := 0; i < len(moves); i++ {
-				move := moves[i]
-				board, err := board.Swap(starting_pos, move)
-				if err != nil {
-					continue
-				}
-				new_state := AStarState{
-					board,
-					starting_pos,
-					starting_pos.Swap(move),
-					[]Direction{move},
-					0,
-				}
-				if !requirements.RejectionFn(new_state) {
-					heap.Push(&queue, &new_state)
-					// queue.Push(&new_state)
-				}
+	var starting_positions []Placement = requirements.StartingPositions
+	if len(starting_positions) == 0 {
+		for y := uint8(0); y < board.Height; y++ {
+			for x := uint8(0); x < board.Width; x++ {
+				starting_positions = append(starting_positions, Placement{y, x})
+			}
+		}
+	}
+  for _, starting_pos := range starting_positions {
+		for i := 0; i < len(moves); i++ {
+			move := moves[i]
+			board, err := board.Swap(starting_pos, move)
+			if err != nil {
+				continue
+			}
+			new_state := AStarState{
+				board,
+				starting_pos,
+				starting_pos.Swap(move),
+				[]Direction{move},
+				0,
+			}
+			if !requirements.RejectionFn(new_state) {
+				heap.Push(&queue, &new_state)
+				// queue.Push(&new_state)
 			}
 		}
 	}
@@ -281,7 +258,7 @@ func AStarSolve(board Board, requirements SolveRequirement) Moves {
 			break
 		}
 		if state_ptr == last_ptr {
-			fmt.Println((*state_ptr).moves)
+			// fmt.Println((*state_ptr).moves)
 			panic("This should not happen.")
 		}
 		last_ptr = state_ptr

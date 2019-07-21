@@ -1,5 +1,9 @@
 package main
 
+import (
+	"fmt"
+)
+
 type OrbAttribute uint8
 
 const (
@@ -48,6 +52,17 @@ var AttributeToLetter map[OrbAttribute]string = map[OrbAttribute]string{
 
 func (self OrbAttribute) String() string {
 	return AttributeToName[self]
+}
+
+func OrbAttributeArrayToString(attrs []OrbAttribute) string {
+	result := "["
+	for _, attr := range attrs {
+		result += attr.String() + ", "
+	}
+	if len(result) == 1 {
+		return "[]"
+	}
+	return result[:len(result) - 2] + "]"
 }
 
 func AllOrbAttributesExcept(to_ignore []OrbAttribute) []OrbAttribute {
@@ -115,6 +130,32 @@ const (
 	LEFT
 	UP_LEFT
 )
+
+var DirectionToLetter map[Direction]string = map[Direction]string {
+	RIGHT: "R",
+	DOWN_RIGHT: "DR",
+	DOWN: "D",
+	DOWN_LEFT: "DL",
+	LEFT: "L",
+	UP_LEFT: "UL",
+	UP: "U",
+	UP_RIGHT: "UR",
+}
+
+func (self Direction) String() string {
+	return DirectionToLetter[self]
+}
+
+func DirectionsToString(directions []Direction) string {
+	result := ""
+	for _, direction := range directions {
+		result += fmt.Sprintf("%s, ", direction)
+	}
+	if len(result) <= 1 {
+		return ""
+	}
+	return result[:len(result) - 2]
+}
 
 type ComboType uint8
 

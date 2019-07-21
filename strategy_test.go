@@ -122,3 +122,31 @@ func TestManhattanDistance_OneShifted_Returns6(t *testing.T) {
 		panic("Distance should be 6.")
 	}
 }
+
+func TestUnusedOrbIdxs(t *testing.T) {
+	board_setup := BoardSetup {
+		Combos: []SetupCombo {
+			SetupCombo {
+				WOOD,
+				[]Pair {Pair{0, 0}, Pair{0, 1}, Pair{0, 2}, Pair{0, 3}, Pair{0, 4}, Pair{0, 5}},
+			},
+			SetupCombo {
+				LIGHT,
+				[]Pair {Pair{1, 0}, Pair{1, 1}, Pair{1, 2}, Pair{1, 3}, Pair{1, 4}},
+			},
+		},
+	}
+	board_setup.Init(6)
+	board := CreateBoard("GGGGGGLLLLLLRRRRRRBBBBBBDDDDDD", 6)
+
+	unused_idx := board_setup.UnusedOrbIdxs(board)
+
+  if len(unused_idx) != 24 {
+		fmt.Println(len(unused_idx))
+		s := ""
+		for _, idx := range unused_idx {
+			s += idx.String() + ", "
+		}
+		panic(s[:len(s) - 2])
+	}
+}

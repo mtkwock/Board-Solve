@@ -22,25 +22,6 @@ type Moves struct {
 	Directions []Direction
 }
 
-var DirectionToLetter map[Direction]string = map[Direction]string {
-	RIGHT: "R",
-	DOWN_RIGHT: "DR",
-	DOWN: "D",
-	DOWN_LEFT: "DL",
-	LEFT: "L",
-	UP_LEFT: "UL",
-	UP: "U",
-	UP_RIGHT: "UR",
-}
-
-func DirectionsToString(directions []Direction) string {
-	result := ""
-	for _, direction := range directions {
-		result += fmt.Sprintf("%s, ", DirectionToLetter[direction])
-	}
-	return result
-}
-
 func (self Moves) String() string {
 	result := fmt.Sprintf("[%d, %d]: ", self.StartingPosition.Y, self.StartingPosition.X)
 	result += DirectionsToString(self.Directions)
@@ -136,7 +117,7 @@ func (self *StatePriorityQueue) Swap(i, j int) {
 
 func (self *StatePriorityQueue) Push(x interface{}) {
 	if self.head == self.tail && self.count > 0 {
-		new_data := make([]*AStarState, len(self.data) * 2)
+		new_data := make([]*AStarState, len(self.data) * 4)
 		copy(new_data, self.data[self.head:])
 		copy(new_data[len(self.data) - self.head:], self.data[:self.head])
 		self.head = 0
@@ -244,7 +225,7 @@ func AStarSolve(board Board, requirements SolveRequirement) Moves {
 	}
 	fmt.Printf("Queue initial size: %d\n", queue.count)
 
-	best_state := AStarState{}
+	best_state := AStarState{score: -100000}
 
 	checked := 0
 	skipped := 0
@@ -270,6 +251,7 @@ func AStarSolve(board Board, requirements SolveRequirement) Moves {
 			best_state = current_state
 			// best_state.Combos = len(current_state.board.GetAllCombos())
 			current_moves := Moves{current_state.starting_pos, current_state.moves}
+			// fmt.Println(best_state.board)
 			fmt.Printf("Current best with score of %d\n%s\n", best_state.score, current_moves)
 		}
 		next_states := current_state.NextStates(requirements)
@@ -288,7 +270,7 @@ func AStarSolve(board Board, requirements SolveRequirement) Moves {
 		}
 		// Check every 1,000,000 iterations
 		checked++
-		if checked % 1000000 == 0 {
+		if (checked + skipped) % 1000000 == 0 {
 			fmt.Printf("Checked: %d, Skipped: %d\n", checked, skipped)
 		}
 	}

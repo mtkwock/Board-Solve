@@ -102,6 +102,23 @@ func ToDawnglare(board Board, moves Moves) string {
 	return fmt.Sprintf(dawnglare_pattern, height, width, board.SimpleString(), move_string)
 }
 
+func MakeRejectionFunction() func(AStarState) bool {
+	known_boards := map[string]int{}
+	rejection_fn := func(state AStarState) bool {
+		key := state.current_pos.String() + state.board.SimpleString()
+		// value := state.starting_pos.String() + DirectionsToString(state.moves)
+		if old_val, exists := known_boards[key]; exists && state.score <= old_val {
+			return true
+		}
+		if len(state.moves) > flag_max_moves {
+			return true
+		}
+		known_boards[key] = state.score
+		return false
+	}
+	return rejection_fn
+}
+
 func main() {
 	timed_out := false
 	if flag_timeout_ms > 0 {
@@ -117,19 +134,6 @@ func main() {
 			return true
 		}
 		return len(state.board.GetAllCombos()) >= flag_combo_minimum
-	}
-	known_boards := map[string]int{}
-	rejection_fn := func(state AStarState) bool {
-		key := state.current_pos.String() + state.board.SimpleString()
-		// value := state.starting_pos.String() + DirectionsToString(state.moves)
-		if old_val, exists := known_boards[key]; exists && state.score <= old_val {
-			return true
-		}
-		if len(state.moves) > flag_max_moves {
-			return true
-		}
-		known_boards[key] = state.score
-		return false
 	}
 	scoring_fn := func(state AStarState) int {
 		move_cost := 3
@@ -154,7 +158,7 @@ func main() {
 		// Determines if a state meets the goal.
 		acceptance_fn,
 		// Determines if a state should be ignored.
-		rejection_fn,
+		MakeRejectionFunction(),
 		// Determines and updates a state's score.
 		scoring_fn,
 		// Allowable starting positions. If empty, search all.

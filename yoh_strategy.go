@@ -13,17 +13,6 @@ type YohAnalysis struct {
 	three_matches []OrbAttribute
 }
 
-func OrbAttributeArrayToString(attrs []OrbAttribute) string {
-	result := "["
-	for _, attr := range attrs {
-		result += attr.String() + ", "
-	}
-	if len(result) == 1 {
-		return "[]"
-	}
-	return result[:len(result) - 2] + "]"
-}
-
 func (self YohAnalysis) String() string {
 	return fmt.Sprintf(
 		"Woods: %d\nFive-Match: %s\nFallback Five-Match: %s\nExtra Orb: %s\nMaybe Extra: %s\nThrees: %s",
@@ -93,7 +82,7 @@ func YohAnalyze(board Board) YohAnalysis {
 //  * VDP + 5-match
 //  * VDP + Fua
 //  * VDP + SFua
-func MakeYohRowStrategy(board Board) BoardSetup {
+func YohFindSetup(board Board) BoardSetup {
 	analysis := YohAnalyze(board)
 
 	potential_board_setups := make([]BoardSetup, 0)
@@ -117,7 +106,7 @@ func MakeYohRowStrategy(board Board) BoardSetup {
 		// . . . . . .
 		// . . . . . .
 		board_setup_1 := BoardSetup {
-			[]SetupCombo {
+			Combos: []SetupCombo {
 				SetupCombo {
 					WOOD,
 					[]Pair {Pair{0, 0}, Pair{0, 1}, Pair{0, 2}, Pair{0, 3}, Pair{0, 4}, Pair{0, 5}},
@@ -127,8 +116,6 @@ func MakeYohRowStrategy(board Board) BoardSetup {
 					[]Pair {Pair{1, 0}, Pair{1, 1}, Pair{1, 2}, Pair{1, 3}, Pair{1, 4}},
 				},
 			},
-			make(map[uint8]OrbAttribute, 0),
-			0,
 		}
 		board_setup_1.Init(board.Width)
 
@@ -138,7 +125,7 @@ func MakeYohRowStrategy(board Board) BoardSetup {
 		// . . . . . .
 		// 1 1 1 1 1 .
 		board_setup_2 := BoardSetup {
-			[]SetupCombo {
+			Combos: []SetupCombo {
 				SetupCombo {
 					WOOD,
 					[]Pair {Pair{0, 0}, Pair{0, 1}, Pair{0, 2}, Pair{0, 3}, Pair{0, 4}, Pair{0, 5}},
@@ -148,8 +135,6 @@ func MakeYohRowStrategy(board Board) BoardSetup {
 					[]Pair {Pair{4, 0}, Pair{4, 1}, Pair{4, 2}, Pair{4, 3}, Pair{4, 4}},
 				},
 			},
-			make(map[uint8]OrbAttribute, 0),
-			0,
 		}
 		board_setup_2.Init(board.Width)
 
@@ -159,13 +144,26 @@ func MakeYohRowStrategy(board Board) BoardSetup {
 			if extra_match_attr == five_match_attr {
 				continue
 			}
+			// G G G G G G
+			// . . . . . .
+			// . . . . . .
+			// . . . . . .
+			// 1 1 1 1 1 2
+			board_setup_2b := board_setup_2.Clone()
+			board_setup_2b.Combos = []SetupCombo{
+				board_setup_2b.Combos[0],
+				SetupCombo{extra_match_attr, []Pair{Pair{4, 5}}},
+				board_setup_2b.Combos[1],
+			}
+			board_setup_2b.Init(board.Width)
+
 			// 1 1 1 1 1 2
 			// G G G G G G
 			// . . . . . .
 			// . . . . . .
 			// . . . . . .
 			board_setup_3 := BoardSetup {
-				[]SetupCombo {
+				Combos: []SetupCombo {
 					SetupCombo {
 						five_match_attr,
 						[]Pair {Pair{0, 0}, Pair{0, 1}, Pair{0, 2}, Pair{0, 3}, Pair{0, 4}},
@@ -181,11 +179,9 @@ func MakeYohRowStrategy(board Board) BoardSetup {
 						},
 					},
 				},
-				make(map[uint8]OrbAttribute, 0),
-				0,
 			}
 			board_setup_3.Init(board.Width)
-			potential_board_setups = append(potential_board_setups, board_setup_3)
+			potential_board_setups = append(potential_board_setups, board_setup_2b, board_setup_3)
 		}
 		// G G G G G G
 		// 1 1 1 . . .
@@ -198,7 +194,7 @@ func MakeYohRowStrategy(board Board) BoardSetup {
 				for j := i + 1; j < len(analysis.three_matches); j++ {
 					off_color_2 := analysis.three_matches[j]
 					board_setup_4a := BoardSetup {
-						[]SetupCombo {
+						Combos: []SetupCombo {
 							SetupCombo {
 								WOOD,
 								[]Pair{Pair{0, 0}, Pair{0, 1}, Pair{0, 2}, Pair{0, 3}, Pair{0, 4}, Pair{0, 5}},
@@ -220,8 +216,6 @@ func MakeYohRowStrategy(board Board) BoardSetup {
 								[]Pair{Pair{2, 2}, Pair{3, 2}},
 							},
 						},
-						make(map[uint8]OrbAttribute, 0),
-						0,
 					}
 					board_setup_4a.Init(board.Width)
 					board_setup_4b := board_setup_4a.Clone()
@@ -239,21 +233,21 @@ func MakeYohRowStrategy(board Board) BoardSetup {
 
 	for _, setup := range potential_board_setups {
 		distance := setup.ManhattanDistanceAverage(board)
-		fmt.Printf("%s, %f\n", setup, distance)
+		// fmt.Printf("%s, %f\n", setup, distance)
 		if distance < best_average {
 			best_setup = setup
 			best_average = distance
 		}
 		horizontal_flip := setup.MirrorHorizontal(board.Width)
 		distance = horizontal_flip.ManhattanDistanceAverage(board)
-		fmt.Printf("%s, %f\n", horizontal_flip, distance)
+		// fmt.Printf("%s, %f\n", horizontal_flip, distance)
 		if distance < best_average {
 			best_setup = horizontal_flip
 			best_average = distance
 		}
 		horizontal_vertical_flip := horizontal_flip.MirrorVertical(board.Height)
 		distance = horizontal_vertical_flip.ManhattanDistanceAverage(board)
-		fmt.Printf("%s, %f\n", horizontal_vertical_flip, distance)
+		// fmt.Printf("%s, %f\n", horizontal_vertical_flip, distance)
 		if distance < best_average {
 			best_setup = horizontal_vertical_flip
 			best_average = distance
@@ -261,7 +255,7 @@ func MakeYohRowStrategy(board Board) BoardSetup {
 
 		vertical_flip := setup.MirrorVertical(board.Height)
 		distance = vertical_flip.ManhattanDistanceAverage(board)
-		fmt.Printf("%s, %f\n", vertical_flip, distance)
+		// fmt.Printf("%s, %f\n", vertical_flip, distance)
 		if distance < best_average {
 			best_setup = vertical_flip
 			best_average = distance

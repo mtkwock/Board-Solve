@@ -16,6 +16,8 @@ const (
 	BOMB
 )
 
+var ALL_ATTRIBUTES = []OrbAttribute{FIRE, WATER, WOOD, LIGHT, DARK, HEART, JAMMER, POISON, MORTAL_POISON, BOMB}
+
 var AttributeToName map[OrbAttribute]string = map[OrbAttribute]string{
 	EMPTY: "EMPTY",
 	FIRE: "Fire",
@@ -42,6 +44,27 @@ var AttributeToLetter map[OrbAttribute]string = map[OrbAttribute]string{
 	POISON: "P",
 	MORTAL_POISON: "M",
 	BOMB: "o",
+}
+
+func (self OrbAttribute) String() string {
+	return AttributeToName[self]
+}
+
+func AllOrbAttributesExcept(to_ignore []OrbAttribute) []OrbAttribute {
+	possibilities := make([]OrbAttribute, 0)
+	for _, attribute := range ALL_ATTRIBUTES {
+		will_add := true
+		for _, ignored_attribute := range to_ignore {
+			if attribute == ignored_attribute {
+				will_add = false
+				break
+			}
+		}
+		if will_add {
+			possibilities = append(possibilities, attribute)
+		}
+	}
+	return possibilities
 }
 
 var LetterToAttribute map[string]OrbAttribute = invertLetters()

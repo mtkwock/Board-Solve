@@ -10,7 +10,7 @@ import (
 
 var (
 	board_to_solve Board
-	starting_placements []Placement
+	starting_placements []Pair
 
 	// User defined flags.
 	board_flag string
@@ -22,9 +22,11 @@ var (
 	flag_max_moves int
 	flag_timeout_ms int
 	flag_starting_positions string
+	flag_minimum_match int
 )
 
 
+// Parse and validate flags.
 func init() {
 	flag.IntVar(&flag_board_width, "width", 6, "Board width. Height will be (width-1)")
 	flag.StringVar(&board_flag, "board", "",
@@ -36,12 +38,13 @@ func init() {
 	flag.IntVar(&flag_max_moves, "max_moves", 50, "Maximum number of allowable moves.")
 	flag.IntVar(&flag_timeout_ms, "timeout_ms", -1, "How long to keep calculating (ms) before giving up. Negative is indefinite.")
 	flag.StringVar(&flag_starting_positions, "starting_positions", "", "Allowable starting positions in 0-indexed Y-X separated format. e.g. \"0,0|2,1|4,5\".")
+	flag.IntVar(&flag_minimum_match, "min_match", 3, "Minimum number of orbs connected to combo, such as Khepri. 3 or lower will not impact result.")
 	flag.Parse()
 
 	if flag_board_width < 5 || flag_board_width > 7 {
 		panic("Board width should be in the range [5,7]")
 	}
-	starting_placements = make([]Placement, 0)
+	starting_placements = make([]Pair, 0)
 	if flag_starting_positions != "" {
 		for _, coordinate := range strings.Split(flag_starting_positions, "|") {
 			coordinate_vals := strings.Split(coordinate, ",")
@@ -62,7 +65,7 @@ func init() {
 			if x < 0 || x >= flag_board_width {
 				panic(fmt.Sprintf("X value %d outside of range [0,%d]", x, flag_board_width))
 			}
-			starting_placements = append(starting_placements, Placement{uint8(y), uint8(x)})
+			starting_placements = append(starting_placements, Pair{uint8(y), uint8(x)})
 		}
 	}
 
@@ -74,6 +77,9 @@ func init() {
 			panic(err)
 		}
 		board_to_solve = CreateBoard(board_flag, flag_board_width)
+	}
+	if flag_minimum_match > 3 {
+		board_to_solve.MinimumMatch = flag_minimum_match
 	}
 }
 

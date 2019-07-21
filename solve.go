@@ -14,11 +14,11 @@ type SolveRequirement struct {
 	// Determines and updates a state's score.
 	ScoreState func(AStarState) int
 	// Determine allowable starting positions. If empty slice, search all.
-	StartingPositions []Placement
+	StartingPositions []Pair
 }
 
 type Moves struct {
-	StartingPosition Placement
+	StartingPosition Pair
 	Directions []Direction
 }
 
@@ -49,8 +49,8 @@ func (self Moves) String() string {
 
 type AStarState struct {
 	board Board
-	starting_pos Placement
-	current_pos Placement
+	starting_pos Pair
+	current_pos Pair
 	moves []Direction
 	// combos []BoardCombo // Should we store this?
 	score int
@@ -214,11 +214,11 @@ func AStarSolve(board Board, requirements SolveRequirement) Moves {
 	if requirements.AllowDiagonals {
 		moves = []Direction{RIGHT, DOWN_RIGHT, DOWN, DOWN_LEFT, LEFT, UP_LEFT, UP, UP_RIGHT}
 	}
-	var starting_positions []Placement = requirements.StartingPositions
+	var starting_positions []Pair = requirements.StartingPositions
 	if len(starting_positions) == 0 {
 		for y := uint8(0); y < board.Height; y++ {
 			for x := uint8(0); x < board.Width; x++ {
-				starting_positions = append(starting_positions, Placement{y, x})
+				starting_positions = append(starting_positions, Pair{y, x})
 			}
 		}
 	}
